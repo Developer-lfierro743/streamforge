@@ -6,6 +6,7 @@ const filter = $("#filter");
 
 let currentEntries = [];
 let currentJobId = null;
+const filters = { text: "", kind: "all", group: "", art: false };
 
 // ---- tabs ----
 document.querySelectorAll(".tab").forEach((t) => {
@@ -46,14 +47,20 @@ function thumb(name) {
 
 // ---- rendering ----
 function render() {
-  const q = filter.value.trim().toLowerCase();
-  const list = q
-    ? currentEntries.filter(
-        (e) =>
-          e.name.toLowerCase().includes(q) ||
-          (e.group || "").toLowerCase().includes(q)
-      )
-    : currentEntries;
+  const q = filters.text.trim().toLowerCase();
+  const list = currentEntries.filter((e) => {
+    const name = (e.name || "").toLowerCase();
+    const group = (e.group || "").toLowerCase();
+    if (q && !(name.includes(q) || group.includes(q))) return false;
+    if (filters.kind !== "all") {
+      const k = e.kind || "live";
+      if (filters.kind === "live" && e.kind) return false; // live = no kind set
+      if (filters.kind !== "live" && k !== filters.kind) return false;
+    }
+    if (filters.group && (e.group || "") !== filters.group) return false;
+    if (filters.art && !e.logo) return false;
+    return true;
+  });
 
   if (!list.length) {
     grid.innerHTML = `<div class="empty">No channels yet. Scrape or import a playlist.</div>`;
@@ -64,7 +71,7 @@ function render() {
       const group = e.group || "Ungrouped";
       const art = e.logo ? escapeHtml(e.logo) : thumb(e.name);
       const year = e.year ? `<span class="year">${escapeHtml(e.year)}</span>` : "";
-      const kind = e.kind && e.kind !== "vod"
+      const kind = e.kind
         ? `<span class="kind">${escapeHtml(e.kind)}</span>` : "";
       return `<div class="card" data-i="${i}">
         <img class="thumb" src="${art}" alt="" loading="lazy" />
@@ -166,11 +173,46 @@ downloadBtn.addEventListener("click", () => {
   a.click();
 });
 
-filter.addEventListener("input", render);
+filter.addEventListener("input", (e) => {
+  filters.text = e.target.value;
+  render();
+});
 
-// ---- reveal toolbar once we have entries ----
+// kind segmented control
+$("#kindSeg").querySelectorAll("button").forEach((b) => {
+  b.addEventListener("click", () => {
+    $("#kindSeg").querySelectorAll("button").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active");
+    filters.kind = b.dataset.kind;
+    render();
+  });
+});
+
+$("#groupSel").addEventListener("change", (e) => {
+  filters.group = e.target.value;
+  render();
+});
+
+$("#artOnly").addEventListener("change", (e) => {
+  filters.art = e.target.checked;
+  render();
+});
+
+// ---- reveal toolbar + filters once we have entries ----
 function showToolbar() {
   $("#toolbar").classList.remove("hidden");
+  $("#filterbar").classList.remove("hidden");
+  populateGroups();
+}
+
+function populateGroups() {
+  const sel = $("#groupSel");
+  const cur = sel.value;
+  const groups = [...new Set(currentEntries.map((e) => e.group || "Ungrouped"))].sort();
+  sel.innerHTML =
+    '<option value="">All groups</option>' +
+    groups.map((g) => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join("");
+  sel.value = groups.includes(cur) ? cur : "";
 }
 
 // prefill TMDB key state from server config (so personal key isn't pasted each time)
@@ -232,7 +274,7 @@ const modal = $("#modal");
 function openModal(e) {
   $("#modalArt").src = e.logo || thumb(e.name);
   $("#modalTitle").textContent = e.name;
-  const meta = [e.kind && e.kind !== "vod" ? e.kind : "VOD", e.year, e.group]
+  const meta = [e.kind || "Live", e.year, e.group]
     .filter(Boolean)
     .join(" · ");
   $("#modalMeta").textContent = meta;

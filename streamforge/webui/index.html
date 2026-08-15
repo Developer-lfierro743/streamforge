@@ -54,7 +54,17 @@
       </div>
     </section>
 
-    <input id="filter" class="filter hidden" type="search" placeholder="Filter by name or group…" />
+    <section class="filterbar hidden" id="filterbar">
+      <input id="filter" class="filter" type="search" placeholder="Search name or group…" />
+      <div class="seg" id="kindSeg">
+        <button data-kind="all" class="active">All</button>
+        <button data-kind="movie">Movies</button>
+        <button data-kind="series">Series</button>
+        <button data-kind="live">Live</button>
+      </div>
+      <select id="groupSel" class="group-sel"><option value="">All groups</option></select>
+      <label class="chk"><input type="checkbox" id="artOnly" /> Artwork only</label>
+    </section>
 
     <section id="grid" class="grid"></section>
   </main>
