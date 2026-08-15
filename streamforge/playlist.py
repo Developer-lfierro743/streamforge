@@ -18,6 +18,12 @@ class MediaEntry:
     overview: str = ""
     kind: str = ""
     id: int = 0
+    series: str = ""
+    season: int = 0
+    episode: int = 0
+    played_at: float = 0.0
+    resume_at: float = 0.0
+    play_count: int = 0
 
     @property
     def channel_id(self) -> str:
@@ -39,6 +45,28 @@ def slugify(text: str) -> str:
     """Build a URL/file-safe id from a title (lowercase, dashes)."""
     out = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
     return out or "channel"
+
+
+_EPISODE_RE = re.compile(r"(?:[Ss](\d{1,2})[Ee](\d{1,2})|(\d{1,2})[xX](\d{1,2}))")
+
+
+def parse_episode(name: str) -> tuple[str, int, int]:
+    """Detect series/season/episode from a filename.
+
+    Returns ``(series, season, episode)``. For ``Show.S01E02.1080p.mkv`` it
+    yields ``("Show", 1, 2)``; for non-episodic titles returns ``("", 0, 0)``.
+    """
+    m = _EPISODE_RE.search(name)
+    if not m:
+        return ("", 0, 0)
+    if m.group(1):
+        season, episode = int(m.group(1)), int(m.group(2))
+    else:
+        season, episode = int(m.group(3)), int(m.group(4))
+    series = name[: m.start()].replace(".", " ").replace("_", " ").strip()
+    if not series:
+        series = name
+    return (series, season, episode)
 
 
 def sanitize_name(filename: str) -> str:

@@ -141,8 +141,8 @@ def ui_config() -> dict:
 
 # ---- VOD catalog (persistent storage) ----
 @app.get("/api/vod")
-def list_vod(kind: str = "", group: str = "", q: str = "", art: bool = False) -> dict:
-    entries = catalog.list(kind=kind, group=group, q=q, art_only=art)
+def list_vod(kind: str = "", group: str = "", q: str = "", art: bool = False, series: str = "") -> dict:
+    entries = catalog.list(kind=kind, group=group, q=q, art_only=art, series=series)
     return {"count": len(entries), "entries": [e.__dict__ for e in entries]}
 
 
@@ -166,7 +166,19 @@ def play_vod(vod_id: int) -> RedirectResponse:
     entry = catalog.get(vod_id)
     if entry is None:
         raise HTTPException(404, "unknown id")
+    catalog.mark_played(vod_id)
     return RedirectResponse(entry.url, status_code=307)
+
+
+@app.get("/api/vod/history")
+def vod_history(limit: int = 50) -> dict:
+    entries = catalog.history(limit)
+    return {"count": len(entries), "entries": [e.__dict__ for e in entries]}
+
+
+@app.get("/api/vod/series")
+def vod_series() -> dict:
+    return {"series": catalog.series_list()}
 
 
 @app.get("/api/playlist")

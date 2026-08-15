@@ -14,7 +14,7 @@ from typing import Optional
 
 from .artwork import TMDBClient
 from .config import tmdb_api_key
-from .playlist import MediaEntry
+from .playlist import MediaEntry, parse_episode
 
 DEFAULT_DB = "streamforge.db"
 
@@ -22,7 +22,7 @@ DEFAULT_DB = "streamforge.db"
 class VodCatalog:
     def __init__(self, db_path: str = DEFAULT_DB) -> None:
         self.db_path = db_path
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self._init()
@@ -47,22 +47,45 @@ class VodCatalog:
                 """
             )
             self.conn.commit()
+            self._migrate()
+
+    def _migrate(self) -> None:
+        cols = {r[1] for r in self.conn.execute("PRAGMA table_info(vod)")}
+        added = {
+            "series": "TEXT",
+            "season": "INTEGER DEFAULT 0",
+            "episode": "INTEGER DEFAULT 0",
+            "played_at": "REAL DEFAULT 0",
+            "resume_at": "REAL DEFAULT 0",
+            "play_count": "INTEGER DEFAULT 0",
+        }
+        with self._lock:
+            for col, typ in added.items():
+                if col not in cols:
+                    self.conn.execute(f"ALTER TABLE vod ADD COLUMN {col} {typ}")
+            self.conn.commit()
 
     def upsert(self, e: MediaEntry, source: str = "scrape") -> None:
+        series, season, episode = parse_episode(e.name)
+        if e.series:
+            series = e.series
         with self._lock:
             self.conn.execute(
                 """
                 INSERT INTO vod
-                    (url, name, group_title, tvg_id, logo, year, overview, kind, source, added_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (url, name, group_title, tvg_id, logo, year, overview, kind,
+                     source, added_at, series, season, episode)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(url) DO UPDATE SET
                     name=excluded.name, group_title=excluded.group_title,
                     tvg_id=excluded.tvg_id, logo=excluded.logo,
                     year=excluded.year, overview=excluded.overview,
-                    kind=excluded.kind, source=excluded.source
+                    kind=excluded.kind, source=excluded.source,
+                    series=excluded.series, season=excluded.season, episode=excluded.episode
                 """,
                 (e.url, e.name, e.group, e.tvg_id, e.logo, e.year,
-                 e.overview, e.kind, source, time.time()),
+                 e.overview, e.kind, source, time.time(),
+                 series, season, episode),
             )
             self.conn.commit()
 
@@ -71,12 +94,39 @@ class VodCatalog:
             row = self.conn.execute("SELECT * FROM vod WHERE id=?", (id,)).fetchone()
         return self._row_to_entry(row) if row else None
 
+    def mark_played(self, id: int, resume_at: float = 0.0) -> None:
+        with self._lock:
+            self.conn.execute(
+                "UPDATE vod SET played_at=?, resume_at=?, play_count=play_count+1 "
+                "WHERE id=?",
+                (time.time(), resume_at, id),
+            )
+            self.conn.commit()
+
+    def history(self, limit: int = 50) -> list[MediaEntry]:
+        with self._lock:
+            rows = self.conn.execute(
+                "SELECT * FROM vod WHERE played_at > 0 "
+                "ORDER BY played_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [self._row_to_entry(r) for r in rows]
+
+    def series_list(self) -> list[str]:
+        with self._lock:
+            rows = self.conn.execute(
+                "SELECT DISTINCT series FROM vod WHERE series IS NOT NULL AND series<>'' "
+                "ORDER BY series"
+            ).fetchall()
+        return [r[0] for r in rows]
+
     def list(
         self,
         kind: str = "",
         group: str = "",
         q: str = "",
         art_only: bool = False,
+        series: str = "",
         limit: int = 500,
     ) -> list[MediaEntry]:
         sql = "SELECT * FROM vod WHERE 1=1"
@@ -90,6 +140,9 @@ class VodCatalog:
         if group:
             sql += " AND group_title=?"
             args.append(group)
+        if series:
+            sql += " AND series=?"
+            args.append(series)
         if q:
             sql += " AND (name LIKE ? OR group_title LIKE ?)"
             args += [f"%{q}%", f"%{q}%"]
@@ -136,6 +189,12 @@ class VodCatalog:
             year=row["year"] or "",
             overview=row["overview"] or "",
             kind=row["kind"] or "",
+            series=row["series"] or "",
+            season=row["season"] or 0,
+            episode=row["episode"] or 0,
+            played_at=row["played_at"] or 0.0,
+            resume_at=row["resume_at"] or 0.0,
+            play_count=row["play_count"] or 0,
         )
 
 

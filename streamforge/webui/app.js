@@ -6,7 +6,7 @@ const filter = $("#filter");
 
 let currentEntries = [];
 let currentJobId = null;
-const filters = { text: "", kind: "all", group: "", art: false };
+const filters = { text: "", kind: "all", group: "", art: false, series: "" };
 
 // ---- tabs ----
 document.querySelectorAll(".tab").forEach((t) => {
@@ -73,10 +73,15 @@ function render() {
       const year = e.year ? `<span class="year">${escapeHtml(e.year)}</span>` : "";
       const kind = e.kind
         ? `<span class="kind">${escapeHtml(e.kind)}</span>` : "";
+      const ep = e.season && e.episode
+        ? `<span class="ep">S${String(e.season).padStart(2, "0")}E${String(e.episode).padStart(2, "0")}</span>`
+        : "";
+      const hist = e.play_count
+        ? `<span class="hist">▶ ${e.play_count}</span>` : "";
       return `<div class="card" data-i="${i}">
         <img class="thumb" src="${art}" alt="" loading="lazy" />
         <div class="meta">
-          <div class="title">${escapeHtml(e.name)}${year}${kind}</div>
+          <div class="title">${escapeHtml(e.name)}${year}${kind}${ep}${hist}</div>
           <div class="group">${escapeHtml(group)}</div>
         </div>
         <a class="play" href="${e.id ? "/api/vod/" + e.id + "/play" : encodeURI(e.url)}" target="_blank" rel="noopener">▶ Play</a>
@@ -179,20 +184,39 @@ filter.addEventListener("input", (e) => {
 });
 
 // ---- VOD catalog (persistent storage) ----
-$("#catalogBtn").addEventListener("click", async () => {
+function loadCatalog() {
   setStatus("Loading catalog…");
   const p = new URLSearchParams({
     kind: filters.kind === "all" ? "" : filters.kind,
     group: filters.group,
     q: filters.text,
     art: filters.art ? "1" : "",
+    series: filters.series || "",
   });
-  const res = await fetch("/api/vod?" + p.toString()).then((r) => r.json());
-  currentEntries = res.entries;
-  showToolbar();
-  render();
-  $("#catInfo").textContent = `${res.count} in catalog`;
-  setStatus(`Loaded ${res.count} catalog entries.`);
+  fetch("/api/vod?" + p.toString())
+    .then((r) => r.json())
+    .then((res) => {
+      currentEntries = res.entries;
+      showToolbar();
+      render();
+      $("#catInfo").textContent = `${res.count} in catalog`;
+      setStatus(`Loaded ${res.count} catalog entries.`);
+    });
+}
+
+$("#catalogBtn").addEventListener("click", loadCatalog);
+
+$("#historyBtn").addEventListener("click", () => {
+  setStatus("Loading history…");
+  fetch("/api/vod/history")
+    .then((r) => r.json())
+    .then((res) => {
+      currentEntries = res.entries;
+      showToolbar();
+      render();
+      $("#catInfo").textContent = `${res.count} watched`;
+      setStatus(`Watch history: ${res.count} titles.`);
+    });
 });
 
 $("#enrichCatBtn").addEventListener("click", async () => {
@@ -204,8 +228,12 @@ $("#enrichCatBtn").addEventListener("click", async () => {
   }).then((r) => (r.ok ? r.json() : Promise.reject(r)));
   $("#catInfo").textContent = `catalog: ${res.total}`;
   setStatus(`Catalog enriched: ${res.updated} updated (${res.total} total).`);
-  // refresh grid from catalog
-  $("#catalogBtn").click();
+  loadCatalog();
+});
+
+$("#seriesSel").addEventListener("change", (e) => {
+  filters.series = e.target.value;
+  loadCatalog();
 });
 
 // kind segmented control
@@ -243,6 +271,18 @@ function populateGroups() {
     '<option value="">All groups</option>' +
     groups.map((g) => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join("");
   sel.value = groups.includes(cur) ? cur : "";
+  // series dropdown (from server, covers full catalog)
+  fetch("/api/vod/series")
+    .then((r) => r.json())
+    .then((d) => {
+      const ss = $("#seriesSel");
+      const curS = ss.value;
+      ss.innerHTML =
+        '<option value="">All series</option>' +
+        d.series.map((s) => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join("");
+      ss.value = d.series.includes(curS) ? curS : "";
+    })
+    .catch(() => {});
 }
 
 // prefill TMDB key state from server config (so personal key isn't pasted each time)
