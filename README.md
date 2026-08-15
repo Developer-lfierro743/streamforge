@@ -110,6 +110,22 @@ is git-ignored, so it is **never committed**. Only ``config.example.toml``
 In the web UI the key field is auto-disabled when a key is already set via
 config/env, so you don't paste it into the browser each time.
 
+Attribution
+-----------
+
+* **The Movie Database (TMDB)** — VOD artwork is fetched from the TMDB API.
+  Per TMDB's terms of use, the following notice must be displayed:
+
+  *This product uses the TMDB API but is not endorsed or certified by TMDB.*
+
+* Built with `requests <https://requests.readthedocs.io/>`_,
+  `beautifulsoup4 <https://www.crummy.com/software/BeautifulSoup/>`_,
+  `FastAPI <https://fastapi.tiangolo.com/>`_, and
+  `uvicorn <https://www.uvicorn.org/>`_ (all MIT/ASL-2.0).
+
+* Public playlists/EPGs (e.g. iptv-org) are aggregated by reference only;
+  respect each source's license and only use legally-published streams.
+
 The generated playlist looks like::
 
    #EXTM3U
