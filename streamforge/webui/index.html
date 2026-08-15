@@ -46,7 +46,7 @@
     <section class="toolbar hidden" id="toolbar">
       <div class="tb-row">
         <input id="tmdbKey" type="text" placeholder="TMDB API key (for VOD posters)" />
-        <button id="artworkBtn" class="btn small">Fetch artwork</button>
+        <button id="artworkBtn" class="btn small">Enrich VOD</button>
       </div>
       <div class="tb-row">
         <input id="epgUrl" type="url" placeholder="EPG/XMLTV URL (optional, filter to these channels)" />
@@ -62,6 +62,19 @@
   <footer class="attr">
     This product uses the TMDB API but is not endorsed or certified by TMDB.
   </footer>
+
+  <div id="modal" class="modal hidden">
+    <div class="modal-card">
+      <button id="modalClose" class="modal-close">✕</button>
+      <img id="modalArt" class="modal-art" alt="" />
+      <div class="modal-body">
+        <div id="modalTitle" class="modal-title"></div>
+        <div id="modalMeta" class="modal-meta"></div>
+        <div id="modalOverview" class="modal-overview"></div>
+        <a id="modalPlay" class="play" target="_blank" rel="noopener">▶ Play</a>
+      </div>
+    </div>
+  </div>
 
   <script src="/app.js"></script>
 </body>

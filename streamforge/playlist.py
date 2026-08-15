@@ -14,6 +14,9 @@ class MediaEntry:
     group: str = ""
     tvg_id: str = ""
     logo: str = ""
+    year: str = ""
+    overview: str = ""
+    kind: str = "vod"
 
     @property
     def channel_id(self) -> str:

@@ -21,6 +21,7 @@ class TMDBClient:
         self.timeout = timeout
         self._session = requests.Session()
         self._cache: dict[str, str] = {}
+        self._cache_details: dict[str, dict] = {}
 
     def poster_for(self, title: str) -> str:
         if title in self._cache:
@@ -41,14 +42,56 @@ class TMDBClient:
         self._cache[title] = url
         return url
 
+    def details(self, title: str) -> dict:
+        """Resolve a title to TMDB metadata: poster, year, overview, kind."""
+        if title in self._cache_details:
+            return self._cache_details[title]
+        info: dict = {}
+        try:
+            for kind, endpoint, date_key in (
+                ("movie", "search/movie", "release_date"),
+                ("series", "search/tv", "first_air_date"),
+            ):
+                resp = self._session.get(
+                    f"https://api.themoviedb.org/3/{endpoint}",
+                    params={"api_key": self.api_key, "query": title, "include_adult": False},
+                    timeout=self.timeout,
+                )
+                resp.raise_for_status()
+                results = resp.json().get("results") or []
+                if results:
+                    top = results[0]
+                    info = {
+                        "logo": _IMAGE_BASE + top["poster_path"] if top.get("poster_path") else "",
+                        "year": (top.get(date_key) or "")[:4],
+                        "overview": top.get("overview", ""),
+                        "kind": kind,
+                    }
+                    break
+        except requests.RequestException:
+            info = {}
+        self._cache_details[title] = info
+        return info
+
     def enrich(self, entries: list[MediaEntry]) -> list[MediaEntry]:
         out: list[MediaEntry] = []
         for e in entries:
-            if e.logo:
+            if e.logo and e.year and e.overview:
                 out.append(e)
                 continue
-            logo = self.poster_for(e.name)
-            out.append(MediaEntry(e.url, e.name, e.group, e.tvg_id, logo))
+            d = self.details(e.name)
+            out.append(
+                MediaEntry(
+                    e.url,
+                    e.name,
+                    e.group,
+                    e.tvg_id,
+                    d.get("logo") or e.logo,
+                    d.get("year", ""),
+                    d.get("overview", ""),
+                    d.get("kind") or e.kind,
+                )
+            )
         return out
 
 

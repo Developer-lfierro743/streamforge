@@ -63,16 +63,28 @@ function render() {
     .map((e, i) => {
       const group = e.group || "Ungrouped";
       const art = e.logo ? escapeHtml(e.logo) : thumb(e.name);
-      return `<div class="card">
+      const year = e.year ? `<span class="year">${escapeHtml(e.year)}</span>` : "";
+      const kind = e.kind && e.kind !== "vod"
+        ? `<span class="kind">${escapeHtml(e.kind)}</span>` : "";
+      return `<div class="card" data-i="${i}">
         <img class="thumb" src="${art}" alt="" loading="lazy" />
         <div class="meta">
-          <div class="title">${escapeHtml(e.name)}</div>
+          <div class="title">${escapeHtml(e.name)}${year}${kind}</div>
           <div class="group">${escapeHtml(group)}</div>
         </div>
         <a class="play" href="${encodeURI(e.url)}" target="_blank" rel="noopener">▶ Play</a>
       </div>`;
     })
     .join("");
+
+  // open details modal when tapping a card (but not the Play link)
+  grid.querySelectorAll(".card").forEach((card) => {
+    card.addEventListener("click", (ev) => {
+      if (ev.target.closest(".play")) return;
+      const e = list[Number(card.dataset.i)];
+      openModal(e);
+    });
+  });
 }
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) =>
@@ -214,6 +226,24 @@ $("#epgBtn").addEventListener("click", async () => {
 function setStatus(msg) {
   status.textContent = msg;
 }
+
+// ---- details modal ----
+const modal = $("#modal");
+function openModal(e) {
+  $("#modalArt").src = e.logo || thumb(e.name);
+  $("#modalTitle").textContent = e.name;
+  const meta = [e.kind && e.kind !== "vod" ? e.kind : "VOD", e.year, e.group]
+    .filter(Boolean)
+    .join(" · ");
+  $("#modalMeta").textContent = meta;
+  $("#modalOverview").textContent = e.overview || "No description available.";
+  $("#modalPlay").href = e.url;
+  modal.classList.remove("hidden");
+}
+$("#modalClose").addEventListener("click", () => modal.classList.add("hidden"));
+modal.addEventListener("click", (ev) => {
+  if (ev.target === modal) modal.classList.add("hidden");
+});
 
 // ---- PWA install ----
 if ("serviceWorker" in navigator) {
