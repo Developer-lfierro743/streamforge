@@ -38,6 +38,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--epg-url", default="", help="Fetch+filter a public XMLTV from this URL"
     )
     p.add_argument("--tmdb-key", default="", help="TMDB API key for VOD posters")
+    p.add_argument(
+        "--aggregate", action="store_true",
+        help="Merge all [sources] from config.toml into one master playlist",
+    )
+    p.add_argument(
+        "--sources-file", default="config.toml",
+        help="TOML file with the [sources] table (used by --aggregate)",
+    )
     return p
 
 
@@ -47,7 +55,6 @@ def main(argv: list[str] | None = None) -> int:
     if args.serve:
         from .web import app
         import uvicorn
-
         # proot (and Android) cannot bind ports < 1024 without
         # CAP_NET_BIND_SERVICE. Transparently remap a privileged port so the
         # server "just works" — this is the proot hijack.
@@ -66,6 +73,35 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         uvicorn.run(app, host=args.host, port=args.port)
+        return 0
+
+    if args.aggregate:
+        from .aggregate import aggregate, build_epg
+        from .config import load_sources, tmdb_api_key
+        from .playlist import build_m3u
+
+        sources = load_sources(args.sources_file)
+        if not sources:
+            build_parser().error(
+                f"no [sources] found in {args.sources_file}"
+            )
+        key = tmdb_api_key(args.tmdb_key)
+        entries, epg_urls = aggregate(sources, tmdb_key=key)
+        if not entries:
+            print("[streamforge] no entries aggregated.", file=sys.stderr)
+            return 1
+        with open(args.output, "w", encoding="utf-8") as fh:
+            fh.write(build_m3u(entries))
+        print(
+            f"[streamforge] aggregated {len(entries)} entries -> {args.output}",
+            file=sys.stderr,
+        )
+        if args.epg and epg_urls:
+            xml = build_epg(epg_urls, entries)
+            if xml:
+                with open(args.epg, "w", encoding="utf-8") as fh:
+                    fh.write(xml)
+                print(f"[streamforge] wrote EPG -> {args.epg}", file=sys.stderr)
         return 0
 
     if not args.url:

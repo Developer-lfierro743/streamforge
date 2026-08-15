@@ -120,6 +120,16 @@ class VodCatalog:
             ).fetchall()
         return [r[0] for r in rows]
 
+    def seasons(self, series: str) -> list[tuple[int, int]]:
+        """Distinct (season, episode_count) for a series, ordered by season."""
+        with self._lock:
+            rows = self.conn.execute(
+                "SELECT season, COUNT(*) FROM vod "
+                "WHERE series=? AND season>0 GROUP BY season ORDER BY season",
+                (series,),
+            ).fetchall()
+        return [(int(r[0]), int(r[1])) for r in rows]
+
     def list(
         self,
         kind: str = "",
@@ -127,6 +137,7 @@ class VodCatalog:
         q: str = "",
         art_only: bool = False,
         series: str = "",
+        season: int = 0,
         limit: int = 500,
     ) -> list[MediaEntry]:
         sql = "SELECT * FROM vod WHERE 1=1"
@@ -136,13 +147,18 @@ class VodCatalog:
         elif kind == "series":
             sql += " AND kind='series'"
         elif kind == "live":
-            sql += " AND (kind IS NULL OR kind='')"
+            sql += " AND kind='live'"
+        elif kind == "vod":
+            sql += " AND (kind='vod' OR kind IS NULL OR kind='')"
         if group:
             sql += " AND group_title=?"
             args.append(group)
         if series:
             sql += " AND series=?"
             args.append(series)
+        if season:
+            sql += " AND season=?"
+            args.append(season)
         if q:
             sql += " AND (name LIKE ? OR group_title LIKE ?)"
             args += [f"%{q}%", f"%{q}%"]

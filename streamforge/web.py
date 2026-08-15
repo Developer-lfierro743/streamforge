@@ -139,10 +139,84 @@ def ui_config() -> dict:
     return {"has_tmdb_key": has_tmdb_key()}
 
 
+@app.get("/api/sources")
+def ui_sources() -> dict:
+    from dataclasses import asdict
+
+    from .config import load_config
+    from .aggregate import load_sources
+
+    sources = [asdict(s) for s in load_sources(load_config("config.toml"))]
+    return {"sources": sources}
+
+
+class AggregateRequest(BaseModel):
+    sources: list[dict] = []
+    output: str = ""
+    tmdb_key: str = ""
+
+
+@app.post("/api/aggregate")
+def run_aggregate(req: AggregateRequest) -> dict:
+    from .aggregate import aggregate, build_epg, load_sources
+    from .config import load_config, tmdb_api_key as resolve_key
+
+    if req.sources:
+        sources = load_sources({"sources": req.sources})
+    else:
+        sources = load_sources(load_config("config.toml"))
+    if not sources:
+        raise HTTPException(
+            400,
+            "no sources configured (add a [sources] table to config.toml "
+            "or pass sources in the request)",
+        )
+
+    key = resolve_key(req.tmdb_key)
+    entries, epg_urls = aggregate(sources, tmdb_key=key)
+    if not entries:
+        return {"count": 0, "live": 0, "vod": 0, "epg": None, "output": None}
+
+    for e in entries:
+        try:
+            catalog.upsert(e, source="aggregate")
+        except Exception:  # noqa: BLE001
+            pass
+
+    out = req.output or os.environ.get("STREAMFORGE_OUTPUT", "aggregated.m3u")
+    try:
+        with open(out, "w", encoding="utf-8") as fh:
+            fh.write(build_m3u(entries))
+        written = out
+    except Exception:  # noqa: BLE001
+        written = None
+
+    epg_written = None
+    if epg_urls:
+        epg_xml = build_epg(epg_urls, entries)
+        if epg_xml:
+            epg_out = os.environ.get("STREAMFORGE_EPG", "aggregated.xml")
+            try:
+                with open(epg_out, "w", encoding="utf-8") as fh:
+                    fh.write(epg_xml)
+                epg_written = epg_out
+            except Exception:  # noqa: BLE001
+                epg_written = None
+
+    live = sum(1 for e in entries if e.kind == "live")
+    return {
+        "count": len(entries),
+        "live": live,
+        "vod": len(entries) - live,
+        "epg": epg_written,
+        "output": written,
+    }
+
+
 # ---- VOD catalog (persistent storage) ----
 @app.get("/api/vod")
-def list_vod(kind: str = "", group: str = "", q: str = "", art: bool = False, series: str = "") -> dict:
-    entries = catalog.list(kind=kind, group=group, q=q, art_only=art, series=series)
+def list_vod(kind: str = "", group: str = "", q: str = "", art: bool = False, series: str = "", season: int = 0) -> dict:
+    entries = catalog.list(kind=kind, group=group, q=q, art_only=art, series=series, season=season)
     return {"count": len(entries), "entries": [e.__dict__ for e in entries]}
 
 
@@ -179,6 +253,13 @@ def vod_history(limit: int = 50) -> dict:
 @app.get("/api/vod/series")
 def vod_series() -> dict:
     return {"series": catalog.series_list()}
+
+
+@app.get("/api/vod/seasons")
+def vod_seasons(series: str = "") -> dict:
+    if not series:
+        raise HTTPException(400, "series required")
+    return {"series": series, "seasons": catalog.seasons(series)}
 
 
 @app.get("/api/playlist")

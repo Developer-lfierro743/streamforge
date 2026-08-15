@@ -4,3 +4,27 @@
 
 [tmdb]
 api_key = "YOUR_TMDB_API_KEY_HERE"
+
+# Multi-source link aggregator. Run `streamforge --aggregate` (CLI) or click
+# "Aggregate sources" in the web UI to merge every source below into one
+# master playlist. Types: "playlist" (live .m3u8), "directory" (open web dir
+# of video files), "epg" (XMLTV guide attached to the live channels).
+[[sources]]
+type = "playlist"
+name = "Free-TV Live"
+url = "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8"
+
+# Example VOD source (open directory of movie/series files):
+# [[sources]]
+# type = "directory"
+# name = "My Movies"
+# url = "https://example.com/files/"
+# recursive = true
+# extensions = ["mp4", "mkv"]
+# kind = "vod"
+
+# Example EPG (filtered to the channels found above):
+# [[sources]]
+# type = "epg"
+# name = "EPG"
+# url = "https://raw.githubusercontent.com/iptv-org/epg/master/epg.xml"

@@ -35,3 +35,20 @@ def tmdb_api_key(explicit: str = "") -> str:
 
 def has_tmdb_key(explicit: str = "") -> bool:
     return bool(tmdb_api_key(explicit))
+
+
+def load_config(path: str = "config.toml") -> dict:
+    """Parse ``config.toml`` (or any TOML file) into a dict; empty if missing."""
+    from pathlib import Path
+
+    p = Path(path)
+    if p.exists():
+        return _load_toml(p)
+    return {}
+
+
+def load_sources(path: str = "config.toml") -> list:
+    """Read the ``[sources]`` table from ``config.toml`` as ``Source`` objects."""
+    from .aggregate import load_sources as _build
+
+    return _build(load_config(path))

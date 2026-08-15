@@ -6,7 +6,7 @@ const filter = $("#filter");
 
 let currentEntries = [];
 let currentJobId = null;
-const filters = { text: "", kind: "all", group: "", art: false, series: "" };
+const filters = { text: "", kind: "all", group: "", art: false, series: "", season: 0 };
 
 // ---- tabs ----
 document.querySelectorAll(".tab").forEach((t) => {
@@ -146,6 +146,37 @@ function poll(jobId) {
   }, 1000);
 }
 
+// ---- aggregate (multi-source link aggregator) ----
+function refreshSourcesHint() {
+  fetch("/api/sources")
+    .then((r) => r.json())
+    .then((d) => {
+      const n = (d.sources || []).length;
+      $("#aggSources").textContent = n
+        ? `${n} source(s) configured in config.toml.`
+        : "No [sources] configured in config.toml yet.";
+    })
+    .catch(() => {});
+}
+
+$("#aggregateBtn").addEventListener("click", async () => {
+  setStatus("Aggregating sources…");
+  const res = await fetch("/api/aggregate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tmdb_key: $("#tmdbKey").value.trim() }),
+  }).then((r) => (r.ok ? r.json() : Promise.reject(r)));
+  if (res.count === 0) {
+    return setStatus("Aggregate finished with 0 entries (check sources).");
+  }
+  setStatus(
+    `Aggregated ${res.count} entries (${res.live} live, ${res.vod} VOD)` +
+      (res.output ? ` → ${res.output}` : "") +
+      (res.epg ? `; EPG → ${res.epg}` : "")
+  );
+  loadCatalog();
+});
+
 // ---- import ----
 $("#importBtn").addEventListener("click", async () => {
   const url = $("#importUrl").value.trim();
@@ -192,6 +223,7 @@ function loadCatalog() {
     q: filters.text,
     art: filters.art ? "1" : "",
     series: filters.series || "",
+    season: filters.season || "",
   });
   fetch("/api/vod?" + p.toString())
     .then((r) => r.json())
@@ -233,8 +265,48 @@ $("#enrichCatBtn").addEventListener("click", async () => {
 
 $("#seriesSel").addEventListener("change", (e) => {
   filters.series = e.target.value;
+  filters.season = 0;
+  if (filters.series) {
+    loadSeasons(filters.series);
+  } else {
+    $("#seasonRow").classList.add("hidden");
+    $("#seasonStrip").innerHTML = "";
+  }
   loadCatalog();
 });
+
+// ---- seasons drill-down (Series -> Season -> Episodes) ----
+function loadSeasons(series) {
+  fetch("/api/vod/seasons?series=" + encodeURIComponent(series))
+    .then((r) => (r.ok ? r.json() : Promise.reject(r)))
+    .then((d) => {
+      const strip = $("#seasonStrip");
+      if (!d.seasons.length) {
+        $("#seasonRow").classList.add("hidden");
+        strip.innerHTML = "";
+        return;
+      }
+      $("#seasonRow").classList.remove("hidden");
+      const btns = d.seasons
+        .map(
+          ([s, n]) =>
+            `<button class="season-btn${filters.season === s ? " active" : ""}" data-season="${s}">S${s} <span class="cnt">${n}</span></button>`
+        )
+        .join("");
+      strip.innerHTML =
+        `<button class="season-btn${filters.season === 0 ? " active" : ""}" data-season="0">All</button>` +
+        btns;
+      strip.querySelectorAll(".season-btn").forEach((b) => {
+        b.addEventListener("click", () => {
+          filters.season = Number(b.dataset.season);
+          loadCatalog();
+        });
+      });
+    })
+    .catch(() => {
+      $("#seasonRow").classList.add("hidden");
+    });
+}
 
 // kind segmented control
 $("#kindSeg").querySelectorAll("button").forEach((b) => {
@@ -362,4 +434,5 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("/sw.js").catch(() => {});
 }
 
+refreshSourcesHint();
 render();

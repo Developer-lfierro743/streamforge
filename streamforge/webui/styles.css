@@ -74,3 +74,9 @@ input[type=url], input[type=text], input[type=search] { width: 100%; margin-top:
 .modal-meta { color: var(--muted); font-size: 12px; margin: 6px 0 10px; }
 .modal-overview { font-size: 13px; line-height: 1.5; color: #cdd6e2; }
 .modal .play { display: block; text-align: center; margin-top: 14px; }
+.season-strip { display: flex; flex-wrap: wrap; gap: 8px; }
+.season-btn { background: var(--card); color: var(--text); border: 1px solid #2a3340;
+  border-radius: 999px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+.season-btn .cnt { color: var(--muted); font-size: 11px; margin-left: 4px; }
+.season-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.season-btn.active .cnt { color: rgba(255, 255, 255, 0.8); }

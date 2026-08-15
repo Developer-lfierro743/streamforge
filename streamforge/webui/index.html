@@ -19,6 +19,7 @@
       <div class="tabs">
         <button class="tab active" data-tab="scrape">Scrape</button>
         <button class="tab" data-tab="import">Import playlist</button>
+        <button class="tab" data-tab="aggregate">Aggregate</button>
       </div>
 
       <div class="tabpane" id="tab-scrape">
@@ -38,6 +39,15 @@
         </label>
         <button id="importBtn" class="btn primary">Import</button>
         <p class="hint">Tip: use a public, legally-streamed source (e.g. iptv-org).</p>
+      </div>
+
+      <div class="tabpane hidden" id="tab-aggregate">
+        <p class="hint">Merge every source listed in <code>[sources]</code> of
+          <code>config.toml</code> into one master playlist — live channels,
+          open-directory VOD, and (optionally) an XMLTV EPG — so the result
+          isn't limited to live-only streams.</p>
+        <button id="aggregateBtn" class="btn primary">Aggregate sources</button>
+        <p class="hint" id="aggSources"></p>
       </div>
     </section>
 
@@ -61,6 +71,9 @@
       <div class="tb-row">
         <select id="seriesSel" class="group-sel"><option value="">All series</option></select>
       </div>
+      <div class="tb-row hidden" id="seasonRow">
+        <div id="seasonStrip" class="season-strip"></div>
+      </div>
     </section>
 
     <section class="filterbar hidden" id="filterbar">
@@ -69,6 +82,7 @@
         <button data-kind="all" class="active">All</button>
         <button data-kind="movie">Movies</button>
         <button data-kind="series">Series</button>
+        <button data-kind="vod">VOD</button>
         <button data-kind="live">Live</button>
       </div>
       <select id="groupSel" class="group-sel"><option value="">All groups</option></select>

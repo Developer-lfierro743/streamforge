@@ -15,6 +15,33 @@ Features
 * Emits IPTV-ready ``.m3u`` with ``#EXTINF`` metadata and group titles.
 * Pure ``requests`` + ``beautifulsoup4`` (no browser needed).
 
+Multi-source aggregator
+-----------------------
+
+StreamForge can merge **many** sources into one master playlist instead of
+scraping a single directory. Add a ``[sources]`` table to ``config.toml``
+(see ``config.example.toml``) and run:
+
+.. code-block:: bash
+
+   # CLI: merge every [sources] entry into one .m3u (+ optional EPG)
+   python -m streamforge.cli --aggregate --output master.m3u --epg guide.xml
+
+   # Or in the web UI: open the "Aggregate" tab and click "Aggregate sources".
+
+Source types:
+
+* ``playlist`` — a remote ``.m3u``/``.m3u8`` (e.g. Free-TV/IPTV, iptv-org live
+  channels). Tagged as **live**.
+* ``directory`` — an open web directory scraped for video files. Tagged as
+  **VOD** and enriched with TMDB posters if a key is configured.
+* ``epg`` — an XMLTV guide URL, filtered to the channels found and merged into
+  a single guide.
+
+Links are de-duplicated by URL, so the same file referenced by several sources
+appears once. The result is **not limited to live-only** streams — mix live
+channels and on-demand files freely.
+
 Install
 -------
 
