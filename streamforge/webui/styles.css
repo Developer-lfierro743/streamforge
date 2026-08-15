@@ -41,6 +41,7 @@ input[type=url], input[type=text], input[type=search] { width: 100%; margin-top:
 .seg button.active { background: var(--accent); color: #fff; }
 .group-sel { padding: 9px; border-radius: 10px; border: 1px solid #2a3340; background: var(--card); color: var(--text); font-size: 13px; }
 .chk { display: flex; align-items: center; gap: 6px; color: var(--text); font-size: 13px; }
+.cat-info { color: var(--muted); font-size: 12px; align-self: center; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
 .card { background: var(--card); border-radius: 12px; overflow: hidden; display: flex;
   flex-direction: column; }

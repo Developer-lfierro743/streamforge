@@ -79,7 +79,7 @@ function render() {
           <div class="title">${escapeHtml(e.name)}${year}${kind}</div>
           <div class="group">${escapeHtml(group)}</div>
         </div>
-        <a class="play" href="${encodeURI(e.url)}" target="_blank" rel="noopener">▶ Play</a>
+        <a class="play" href="${e.id ? "/api/vod/" + e.id + "/play" : encodeURI(e.url)}" target="_blank" rel="noopener">▶ Play</a>
       </div>`;
     })
     .join("");
@@ -176,6 +176,36 @@ downloadBtn.addEventListener("click", () => {
 filter.addEventListener("input", (e) => {
   filters.text = e.target.value;
   render();
+});
+
+// ---- VOD catalog (persistent storage) ----
+$("#catalogBtn").addEventListener("click", async () => {
+  setStatus("Loading catalog…");
+  const p = new URLSearchParams({
+    kind: filters.kind === "all" ? "" : filters.kind,
+    group: filters.group,
+    q: filters.text,
+    art: filters.art ? "1" : "",
+  });
+  const res = await fetch("/api/vod?" + p.toString()).then((r) => r.json());
+  currentEntries = res.entries;
+  showToolbar();
+  render();
+  $("#catInfo").textContent = `${res.count} in catalog`;
+  setStatus(`Loaded ${res.count} catalog entries.`);
+});
+
+$("#enrichCatBtn").addEventListener("click", async () => {
+  setStatus("Enriching catalog from TMDB…");
+  const res = await fetch("/api/vod/enrich", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ api_key: $("#tmdbKey").value.trim() }),
+  }).then((r) => (r.ok ? r.json() : Promise.reject(r)));
+  $("#catInfo").textContent = `catalog: ${res.total}`;
+  setStatus(`Catalog enriched: ${res.updated} updated (${res.total} total).`);
+  // refresh grid from catalog
+  $("#catalogBtn").click();
 });
 
 // kind segmented control

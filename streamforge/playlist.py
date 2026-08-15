@@ -17,6 +17,7 @@ class MediaEntry:
     year: str = ""
     overview: str = ""
     kind: str = ""
+    id: int = 0
 
     @property
     def channel_id(self) -> str:

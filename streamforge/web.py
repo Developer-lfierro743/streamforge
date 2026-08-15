@@ -2,22 +2,26 @@
 
 from __future__ import annotations
 
+import os
 import threading
 import uuid
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, RedirectResponse
 from pydantic import BaseModel
 
 from .playlist import MediaEntry, build_m3u, parse_m3u
 from .scraper import DEFAULT_EXTENSIONS, OpenDirectoryScraper, ScraperConfig
 from . import epg as epg_mod
 from .artwork import TMDBClient, _to_entries
+from .vod import VodCatalog, enrich_catalog, DEFAULT_DB
 
 STATIC_DIR = Path(__file__).parent / "webui"
 
 app = FastAPI(title="StreamForge")
+
+catalog = VodCatalog(os.environ.get("STREAMFORGE_DB", DEFAULT_DB))
 
 _jobs: dict[str, dict] = {}
 _jobs_lock = threading.Lock()
@@ -46,6 +50,8 @@ def _run_scrape(job_id: str, req: ScrapeRequest) -> None:
             workers=req.workers,
         )
         entries = OpenDirectoryScraper(cfg).scrape(req.url)
+        for e in entries:
+            catalog.upsert(e, source="scrape")
         with _jobs_lock:
             _jobs[job_id].update(status="done", entries=entries, count=len(entries))
     except Exception as exc:  # noqa: BLE001
@@ -81,6 +87,8 @@ def import_playlist(req: ImportRequest) -> dict:
     except requests.RequestException as exc:
         raise HTTPException(502, f"fetch failed: {exc}") from exc
     entries = parse_m3u(resp.text)
+    for e in entries:
+        catalog.upsert(e, source="import")
     return {"count": len(entries), "entries": [e.__dict__ for e in entries]}
 
 
@@ -129,6 +137,36 @@ def ui_config() -> dict:
     from .config import has_tmdb_key
 
     return {"has_tmdb_key": has_tmdb_key()}
+
+
+# ---- VOD catalog (persistent storage) ----
+@app.get("/api/vod")
+def list_vod(kind: str = "", group: str = "", q: str = "", art: bool = False) -> dict:
+    entries = catalog.list(kind=kind, group=group, q=q, art_only=art)
+    return {"count": len(entries), "entries": [e.__dict__ for e in entries]}
+
+
+class EnrichRequest(BaseModel):
+    api_key: str = ""
+
+
+@app.post("/api/vod/enrich")
+def enrich_vod(req: EnrichRequest) -> dict:
+    from .config import tmdb_api_key as resolve_key
+
+    key = resolve_key(req.api_key)
+    if not key:
+        raise HTTPException(400, "TMDB API key required (paste it or set config.toml)")
+    updated = enrich_catalog(catalog, key)
+    return {"updated": updated, "total": catalog.count()}
+
+
+@app.get("/api/vod/{vod_id}/play")
+def play_vod(vod_id: int) -> RedirectResponse:
+    entry = catalog.get(vod_id)
+    if entry is None:
+        raise HTTPException(404, "unknown id")
+    return RedirectResponse(entry.url, status_code=307)
 
 
 @app.get("/api/playlist")
