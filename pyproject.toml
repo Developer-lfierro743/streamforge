@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "streamforge"
+version = "0.1.0"
+description = "Scrape open directories into IPTV .m3u playlists with a PWA web UI."
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.31.0",
+    "beautifulsoup4>=4.12.0",
+    "fastapi>=0.110.0",
+    "uvicorn>=0.27.0",
+]
+
+[project.scripts]
+streamforge = "streamforge.cli:main"
+
+[tool.setuptools]
+packages = ["streamforge", "streamforge.webui"]

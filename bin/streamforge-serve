@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# streamforge-serve — launch the StreamForge web UI inside proot.
+#
+# proot can't bind ports < 1024. This wrapper builds a tiny LD_PRELOAD shim
+# (bind_hijack.so) that transparently remaps privileged ports (80 -> 10080,
+# 443 -> 10443, ...), so you can run e.g.:
+#
+#   ./streamforge-serve --port 80
+#
+# and the server actually listens on 10080. The printed URL shows the real port.
+set -euo pipefail
+
+HERE="$(cd "$(dirname "$0")/.." && pwd)"
+VENV="$HERE/.venv"
+SHIM="$HERE/bind_hijack.so"
+
+# Activate venv if present.
+if [ -x "$VENV/bin/activate" ]; then
+    # shellcheck disable=SC1091
+    . "$VENV/bin/activate"
+fi
+
+# Build the shim on first use.
+if [ ! -f "$SHIM" ]; then
+    if command -v gcc >/dev/null 2>&1; then
+        echo "[streamforge-serve] building bind_hijack.so ..."
+        gcc -shared -fPIC -o "$SHIM" "$HERE/bind_hijack.c" -ldl
+    else
+        echo "[streamforge-serve] gcc not found; will rely on built-in port remap." >&2
+    fi
+fi
+
+if [ -f "$SHIM" ]; then
+    export LD_PRELOAD="$SHIM${LD_PRELOAD:+:$LD_PRELOAD}"
+fi
+
+exec streamforge --serve "$@"

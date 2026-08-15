@@ -1,0 +1,129 @@
+StreamForge
+==========
+
+A small, dependency-light Python tool that scrapes **public open directories**
+(Apache/nginx autoindex pages, etc.), extracts video files (``.mp4``, ``.mkv``,
+and friends), and writes a clean ``.m3u`` playlist compatible with IPTV players
+such as `TiviMate <https://tivimate.com/>`_.
+
+Features
+--------
+
+* Recursively crawls open-directory listings (``<a href>`` based).
+* Filters by file extension (configurable).
+* Concurrent fetching for speed (thread pool).
+* Emits IPTV-ready ``.m3u`` with ``#EXTINF`` metadata and group titles.
+* Pure ``requests`` + ``beautifulsoup4`` (no browser needed).
+
+Install
+-------
+
+.. code-block:: bash
+
+   pip install -r requirements.txt
+
+Usage
+-----
+
+.. code-block:: bash
+
+   # Scrape a single open directory and write a playlist
+   python -m streamforge.cli \
+       --url "https://example.com/files/" \
+       --output movies.m3u
+
+   # Recursive crawl with custom extensions and more workers
+   python -m streamforge.cli \
+       --url "https://example.com/files/" \
+       --output movies.m3u \
+       --recursive \
+       --extensions mp4 mkv avi \
+       --workers 8
+
+   # Quiet run, no progress output
+   python -m streamforge.cli --url "https://example.com/files/" -o out.m3u -q
+
+Web UI (PWA)
+------------
+
+StreamForge also ships a small web app you can open in a phone browser and
+"Add to Home Screen" like a native app.
+
+.. code-block:: bash
+
+   pip install -r requirements.txt
+   python -m streamforge.cli --serve --host 0.0.0.0 --port 8000
+
+Then open the URL in your browser:
+
+* On the **same Android device** (proot/Debian on the phone):
+  ``http://127.0.0.1:8000``
+* From **another device on the LAN**: use the phone's LAN IP, e.g.
+  ``http://192.168.1.20:8000`` (bind with ``--host 0.0.0.0``).
+
+The UI lets you:
+
+* **Scrape** an open directory (recursive, with extension filter).
+* **Import** an existing public playlist by URL (e.g. a legal, public IPTV
+  source) and merge/filter it.
+* Browse a responsive **channel grid with artwork** (auto-generated
+  thumbnails), filter by name/group, and tap **▶ Play** to send the stream
+  to an external player (VLC / TiviMate).
+* **Download .m3u** for direct use in any IPTV player.
+
+EPG (XMLTV) and artwork
+-------------------------
+
+* **EPG**: generate an XMLTV guide that links to your playlist via ``tvg-id``,
+  or fetch a public XMLTV (e.g. an iptv-org guide) and filter it down to just
+  the channels in your playlist::
+
+     python -m streamforge.cli --url "https://example.com/files/" \
+         --output movies.m3u --epg epg.xml --epg-url "https://.../guide.xml"
+
+  In the web UI use the **Generate EPG** button (optionally paste an EPG URL
+  to filter). Load the resulting ``streamforge.xml`` in your player's EPG setting.
+
+* **TMDB artwork**: for VOD, fetch real posters from The Movie Database and
+  attach them as ``tvg-logo`` (used as card art in the web UI)::
+
+     python -m streamforge.cli --url "https://example.com/files/" \
+         --output movies.m3u --tmdb-key "YOUR_TMDB_KEY"
+
+  In the web UI paste your TMDB key and click **Fetch artwork**.   Get a free key
+  at https://www.themoviedb.org/settings/api.
+
+Keeping your API key private (personal use)
+------------------------------------------------
+
+The TMDB key is resolved in this order: ``--tmdb-key`` > env var
+``STREAMFORGE_TMDB_KEY`` > a local ``config.toml``. The real ``config.toml``
+is git-ignored, so it is **never committed**. Only ``config.example.toml``
+(copy of the shape, no secret) is tracked.
+
+.. code-block:: bash
+
+   cp config.example.toml config.toml
+   # edit config.toml and put your key in
+   # or: export STREAMFORGE_TMDB_KEY=your_key
+
+In the web UI the key field is auto-disabled when a key is already set via
+config/env, so you don't paste it into the browser each time.
+
+The generated playlist looks like::
+
+   #EXTM3U
+   #EXTINF:-1 tvg-name="Movie (1080p)" group-title="files",Movie (1080p)
+   https://example.com/files/Movie%20(1080p).mp4
+
+Notes
+-----
+
+* Only point this at **public** directories you have the right to access.
+* Honors a simple per-host rate limit so you don't hammer a server.
+* Set ``--timeout`` and ``--max-depth`` to control crawling behaviour.
+
+License
+-------
+
+MIT

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f1219" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="stylesheet" href="/styles.css" />
+  <title>StreamForge</title>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">⛏️ StreamForge</div>
+    <button id="downloadBtn" class="btn primary" disabled>Download .m3u</button>
+  </header>
+
+  <main>
+    <section class="panel">
+      <div class="tabs">
+        <button class="tab active" data-tab="scrape">Scrape</button>
+        <button class="tab" data-tab="import">Import playlist</button>
+      </div>
+
+      <div class="tabpane" id="tab-scrape">
+        <label>Open directory URL
+          <input id="url" type="url" placeholder="https://example.com/files/" />
+        </label>
+        <div class="row">
+          <label class="check"><input id="recursive" type="checkbox" /> Recursive</label>
+          <input id="extensions" type="text" value="mp4,mkv,avi,mov,webm,ts" placeholder="extensions" />
+        </div>
+        <button id="scrapeBtn" class="btn primary">Start scrape</button>
+      </div>
+
+      <div class="tabpane hidden" id="tab-import">
+        <label>Public playlist URL (.m3u)
+          <input id="importUrl" type="url" placeholder="https://iptv-org.github.io/iptv/..." />
+        </label>
+        <button id="importBtn" class="btn primary">Import</button>
+        <p class="hint">Tip: use a public, legally-streamed source (e.g. iptv-org).</p>
+      </div>
+    </section>
+
+    <div id="status" class="status"></div>
+
+    <section class="toolbar hidden" id="toolbar">
+      <div class="tb-row">
+        <input id="tmdbKey" type="text" placeholder="TMDB API key (for VOD posters)" />
+        <button id="artworkBtn" class="btn small">Fetch artwork</button>
+      </div>
+      <div class="tb-row">
+        <input id="epgUrl" type="url" placeholder="EPG/XMLTV URL (optional, filter to these channels)" />
+        <button id="epgBtn" class="btn small">Generate EPG</button>
+      </div>
+    </section>
+
+    <input id="filter" class="filter hidden" type="search" placeholder="Filter by name or group…" />
+
+    <section id="grid" class="grid"></section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

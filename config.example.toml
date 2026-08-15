@@ -1,0 +1,6 @@
+# Copy this file to config.toml and fill in your key.
+# config.toml is git-ignored, so it will NOT be committed.
+# Alternatively, set the env var STREAMFORGE_TMDB_KEY.
+
+[tmdb]
+api_key = "YOUR_TMDB_API_KEY_HERE"

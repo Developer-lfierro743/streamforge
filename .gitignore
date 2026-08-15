@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+build/
+dist/
+
+# Secrets — NEVER commit the real config
+config.toml
+.env
+*.so
+
+# Local output
+*.m3u
+*.m3u8
+*.xml
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
